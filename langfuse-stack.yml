@@ -1,0 +1,186 @@
+# =====================================================
+# DOCKER COMPOSE - PORTAINER - LANGFUSE
+# VERSÃO LOCAL - COM CREDENCIAIS REAIS
+# NÃO DEVE IR PARA O GITHUB!
+# =====================================================
+#
+# Usa infraestrutura existente:
+# - PostgreSQL: postgres (criar database langfuse)
+# - Redis: redis:6379
+# - Storage: Backblaze B2 (bucket: langfusemysellers)
+#
+# Antes de deployar, criar o database no PostgreSQL:
+#   docker exec -it $(docker ps -q -f name=postgres) psql -U postgres -c "CREATE DATABASE langfuse;"
+#
+# =====================================================
+
+version: "3.8"
+
+services:
+  # ============================================
+  # CLICKHOUSE (analytics/traces - DEVE INICIAR PRIMEIRO)
+  # ============================================
+  langfuse_clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    networks:
+      - network_swarm_public
+    environment:
+      - CLICKHOUSE_DB=default
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=Ch7Yb3Nf9Qe2Ws5P
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    volumes:
+      - langfuse_clickhouse_data:/var/lib/clickhouse
+      - langfuse_clickhouse_logs:/var/log/clickhouse-server
+    configs:
+      - source: clickhouse_config
+        target: /etc/clickhouse-server/config.d/custom-config.xml
+      - source: clickhouse_users
+        target: /etc/clickhouse-server/users.d/custom-users.xml
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1"
+          memory: 2048M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  # ============================================
+  # LANGFUSE WEB (Interface + API)
+  # ============================================
+  langfuse_web:
+    image: langfuse/langfuse:3
+    networks:
+      - network_swarm_public
+    environment:
+      # PostgreSQL existente
+      - DATABASE_URL=postgresql://postgres:Mfcd62!!Mfcd62!!@postgres:5432/langfuse
+
+      # ClickHouse (novo - específico do Langfuse)
+      - CLICKHOUSE_URL=http://langfuse_clickhouse:8123
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=Ch7Yb3Nf9Qe2Ws5P
+      - CLICKHOUSE_MIGRATION_URL=clickhouse://langfuse_clickhouse:9000
+
+      # Redis existente (sem senha)
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+      # Backblaze B2 Storage - Bucket: langfusemysellers (privado)
+      - LANGFUSE_S3_EVENT_UPLOAD_ENABLED=true
+      - LANGFUSE_S3_EVENT_UPLOAD_BUCKET=langfusemysellers
+      - LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID=005febe0f8970610000000007
+      - LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY=K005XvcqmGHVrrClFRpVeguuCpYoYkg
+      - LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT=https://s3.us-east-005.backblazeb2.com
+      - LANGFUSE_S3_EVENT_UPLOAD_REGION=us-east-005
+
+      # Auth Secrets
+      - NEXTAUTH_URL=https://langfuse.mysellers.com.br
+      - NEXTAUTH_SECRET=kR7vX2mQ9pL4tY8wE1uI6oA3sD5fG0hJ
+      - SALT=nB4cV7xZ1mK8qW2eR5tY9uI3oP6aS0dF
+      - ENCRYPTION_KEY=f8a3b7c2d9e4156780abcdef12345678901234567890abcdef0123456789abcd
+
+      # Configuracoes gerais
+      - LANGFUSE_LOG_LEVEL=info
+      - LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES=false
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1"
+          memory: 2048M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.langfuse_web.rule=Host(`langfuse.mysellers.com.br`)
+        - traefik.http.routers.langfuse_web.entrypoints=websecure
+        - traefik.http.routers.langfuse_web.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.langfuse_web.priority=1
+        - traefik.http.routers.langfuse_web.service=langfuse_web
+        - traefik.http.services.langfuse_web.loadbalancer.server.port=3000
+        - traefik.http.services.langfuse_web.loadbalancer.passhostheader=true
+        - traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https
+        - traefik.http.routers.langfuse_web.middlewares=sslheader@docker
+
+  # ============================================
+  # LANGFUSE WORKER (processamento async)
+  # ============================================
+  langfuse_worker:
+    image: langfuse/langfuse-worker:3
+    networks:
+      - network_swarm_public
+    environment:
+      # PostgreSQL existente
+      - DATABASE_URL=postgresql://postgres:Mfcd62!!Mfcd62!!@postgres:5432/langfuse
+
+      # ClickHouse
+      - CLICKHOUSE_URL=http://langfuse_clickhouse:8123
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=Ch7Yb3Nf9Qe2Ws5P
+      - CLICKHOUSE_MIGRATION_URL=clickhouse://langfuse_clickhouse:9000
+
+      # Redis existente (sem senha)
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+      # Backblaze B2 Storage - Bucket: langfusemysellers (privado)
+      - LANGFUSE_S3_EVENT_UPLOAD_ENABLED=true
+      - LANGFUSE_S3_EVENT_UPLOAD_BUCKET=langfusemysellers
+      - LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID=005febe0f8970610000000007
+      - LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY=K005XvcqmGHVrrClFRpVeguuCpYoYkg
+      - LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT=https://s3.us-east-005.backblazeb2.com
+      - LANGFUSE_S3_EVENT_UPLOAD_REGION=us-east-005
+
+      # Auth Secrets
+      - NEXTAUTH_SECRET=kR7vX2mQ9pL4tY8wE1uI6oA3sD5fG0hJ
+      - SALT=nB4cV7xZ1mK8qW2eR5tY9uI3oP6aS0dF
+      - ENCRYPTION_KEY=f8a3b7c2d9e4156780abcdef12345678901234567890abcdef0123456789abcd
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1024M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+
+configs:
+  clickhouse_config:
+    file: ./clickhouse-config/config.xml
+  clickhouse_users:
+    file: ./clickhouse-config/users.xml
+
+volumes:
+  langfuse_clickhouse_data:
+  langfuse_clickhouse_logs:
+
+networks:
+  network_swarm_public:
+    external: true
+    name: network_swarm_public
