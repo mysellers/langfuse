@@ -23,15 +23,15 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:24-alpine
     networks:
-      - network_swarm_public
+      - langfuse_internal
     environment:
       - CLICKHOUSE_DB=default
       - CLICKHOUSE_USER=default
       - CLICKHOUSE_PASSWORD=Ch7Yb3Nf9Qe2Ws5P
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
-      - clickhouse_data:/var/lib/clickhouse
-      - clickhouse_logs:/var/log/clickhouse-server
+      - langfuse_clickhouse_data:/var/lib/clickhouse
+      - langfuse_clickhouse_logs:/var/log/clickhouse-server
     configs:
       - source: clickhouse_config
         target: /etc/clickhouse-server/config.d/custom-config.xml
@@ -64,12 +64,13 @@ services:
   langfuse_web:
     image: langfuse/langfuse:3
     networks:
+      - langfuse_internal
       - network_swarm_public
     environment:
       # PostgreSQL existente
       - DATABASE_URL=postgresql://postgres:Mfcd62!!Mfcd62!!@postgres:5432/langfuse
 
-      # ClickHouse (novo - específico do Langfuse)
+      # ClickHouse (rede interna)
       - CLICKHOUSE_URL=http://clickhouse:8123
       - CLICKHOUSE_USER=default
       - CLICKHOUSE_PASSWORD=Ch7Yb3Nf9Qe2Ws5P
@@ -128,12 +129,13 @@ services:
   langfuse_worker:
     image: langfuse/langfuse-worker:3
     networks:
+      - langfuse_internal
       - network_swarm_public
     environment:
       # PostgreSQL existente
       - DATABASE_URL=postgresql://postgres:Mfcd62!!Mfcd62!!@postgres:5432/langfuse
 
-      # ClickHouse
+      # ClickHouse (rede interna)
       - CLICKHOUSE_URL=http://clickhouse:8123
       - CLICKHOUSE_USER=default
       - CLICKHOUSE_PASSWORD=Ch7Yb3Nf9Qe2Ws5P
@@ -177,10 +179,15 @@ configs:
     file: ./clickhouse-config/users.xml
 
 volumes:
-  clickhouse_data:
-  clickhouse_logs:
+  langfuse_clickhouse_data:
+  langfuse_clickhouse_logs:
 
 networks:
+  # Rede interna para comunicação entre serviços Langfuse
+  langfuse_internal:
+    driver: overlay
+    attachable: true
+  # Rede externa para Traefik e outros serviços
   network_swarm_public:
     external: true
     name: network_swarm_public
