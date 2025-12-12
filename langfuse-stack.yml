@@ -22,8 +22,12 @@ services:
   # ============================================
   clickhouse:
     image: clickhouse/clickhouse-server:24-alpine
+    hostname: clickhouse
     networks:
-      - langfuse_internal
+      langfuse_internal:
+        aliases:
+          - clickhouse
+          - ch
     environment:
       - CLICKHOUSE_DB=default
       - CLICKHOUSE_USER=default
@@ -64,8 +68,8 @@ services:
   langfuse_web:
     image: langfuse/langfuse:3
     networks:
-      - langfuse_internal
-      - network_swarm_public
+      langfuse_internal:
+      network_swarm_public:
     environment:
       # PostgreSQL existente
       - DATABASE_URL=postgresql://postgres:Mfcd62!!Mfcd62!!@postgres:5432/langfuse
@@ -129,8 +133,8 @@ services:
   langfuse_worker:
     image: langfuse/langfuse-worker:3
     networks:
-      - langfuse_internal
-      - network_swarm_public
+      langfuse_internal:
+      network_swarm_public:
     environment:
       # PostgreSQL existente
       - DATABASE_URL=postgresql://postgres:Mfcd62!!Mfcd62!!@postgres:5432/langfuse
