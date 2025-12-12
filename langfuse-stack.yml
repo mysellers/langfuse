@@ -28,6 +28,9 @@ services:
         aliases:
           - clickhouse
           - ch
+      network_swarm_public:
+        aliases:
+          - clickhouse
     environment:
       - CLICKHOUSE_DB=default
       - CLICKHOUSE_USER=default
@@ -79,6 +82,7 @@ services:
       - CLICKHOUSE_USER=default
       - CLICKHOUSE_PASSWORD=Ch7Yb3Nf9Qe2Ws5P
       - CLICKHOUSE_MIGRATION_URL=clickhouse://clickhouse:9000
+      - CLICKHOUSE_CLUSTER_ENABLED=false
 
       # Redis existente (sem senha)
       - REDIS_HOST=redis
@@ -144,6 +148,7 @@ services:
       - CLICKHOUSE_USER=default
       - CLICKHOUSE_PASSWORD=Ch7Yb3Nf9Qe2Ws5P
       - CLICKHOUSE_MIGRATION_URL=clickhouse://clickhouse:9000
+      - CLICKHOUSE_CLUSTER_ENABLED=false
 
       # Redis existente (sem senha)
       - REDIS_HOST=redis
