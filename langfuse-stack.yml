@@ -20,7 +20,7 @@ services:
   # ============================================
   # CLICKHOUSE (analytics/traces - DEVE INICIAR PRIMEIRO)
   # ============================================
-  langfuse_clickhouse:
+  clickhouse:
     image: clickhouse/clickhouse-server:24-alpine
     networks:
       - network_swarm_public
@@ -30,8 +30,8 @@ services:
       - CLICKHOUSE_PASSWORD=Ch7Yb3Nf9Qe2Ws5P
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
-      - langfuse_clickhouse_data:/var/lib/clickhouse
-      - langfuse_clickhouse_logs:/var/log/clickhouse-server
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
     configs:
       - source: clickhouse_config
         target: /etc/clickhouse-server/config.d/custom-config.xml
@@ -70,10 +70,10 @@ services:
       - DATABASE_URL=postgresql://postgres:Mfcd62!!Mfcd62!!@postgres:5432/langfuse
 
       # ClickHouse (novo - específico do Langfuse)
-      - CLICKHOUSE_URL=http://langfuse_clickhouse:8123
+      - CLICKHOUSE_URL=http://clickhouse:8123
       - CLICKHOUSE_USER=default
       - CLICKHOUSE_PASSWORD=Ch7Yb3Nf9Qe2Ws5P
-      - CLICKHOUSE_MIGRATION_URL=clickhouse://langfuse_clickhouse:9000
+      - CLICKHOUSE_MIGRATION_URL=clickhouse://clickhouse:9000
 
       # Redis existente (sem senha)
       - REDIS_HOST=redis
@@ -134,10 +134,10 @@ services:
       - DATABASE_URL=postgresql://postgres:Mfcd62!!Mfcd62!!@postgres:5432/langfuse
 
       # ClickHouse
-      - CLICKHOUSE_URL=http://langfuse_clickhouse:8123
+      - CLICKHOUSE_URL=http://clickhouse:8123
       - CLICKHOUSE_USER=default
       - CLICKHOUSE_PASSWORD=Ch7Yb3Nf9Qe2Ws5P
-      - CLICKHOUSE_MIGRATION_URL=clickhouse://langfuse_clickhouse:9000
+      - CLICKHOUSE_MIGRATION_URL=clickhouse://clickhouse:9000
 
       # Redis existente (sem senha)
       - REDIS_HOST=redis
@@ -177,8 +177,8 @@ configs:
     file: ./clickhouse-config/users.xml
 
 volumes:
-  langfuse_clickhouse_data:
-  langfuse_clickhouse_logs:
+  clickhouse_data:
+  clickhouse_logs:
 
 networks:
   network_swarm_public:
